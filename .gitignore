@@ -1,0 +1,14 @@
+.venv/
+venv/
+__pycache__/
+*.pyc
+.env
+data/*.db
+data/*.sqlite
+logs/*.log
+logs/*.jsonl
+dist/
+scripts/deepseek_pow/dspow_native
+*.candidate
+.pytest_cache/
+.ruff_cache/

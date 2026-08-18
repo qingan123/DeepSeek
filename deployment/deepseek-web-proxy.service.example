@@ -1,0 +1,18 @@
+[Unit]
+Description=DeepSeek Web OpenAI-Compatible Proxy
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/project_60089
+EnvironmentFile=/opt/project_60089/.env
+Environment="PATH=/usr/local/bin:/usr/bin:/bin"
+ExecStart=/opt/project_60089/.venv/bin/uvicorn app.main:app --host 127.0.0.1 --port 60089
+Restart=always
+RestartSec=3
+TimeoutStopSec=30
+LimitNOFILE=65536
+
+[Install]
+WantedBy=multi-user.target

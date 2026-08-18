@@ -1,0 +1,79 @@
+import asyncio
+import contextlib
+
+from fastapi import FastAPI
+from fastapi.staticfiles import StaticFiles
+from pathlib import Path
+from sqlalchemy import select
+
+from app.adapters.deepseek import DeepSeekAdapter
+from app.api.openai import router as openai_router
+from app.core.config import get_settings
+from app.db.init_db import get_setting, init_db
+from app.db.models import Credential
+from app.db.session import SessionLocal
+from app.services.logging_service import setup_logging
+from app.services.logging_service import system_log
+from app.web.admin import public_router as public_web_router
+from app.web.admin import router as admin_router
+
+
+async def _deepseek_pow_prewarm_loop() -> None:
+    """Keep the expensive DeepSeek PoW ready before a user message arrives."""
+    await asyncio.sleep(2)
+    while True:
+        db = SessionLocal()
+        interval = 30
+        try:
+            enabled = get_setting(db, "deepseek_pow_prewarm_enabled", "true").lower() == "true"
+            interval = max(15, int(get_setting(db, "deepseek_pow_prewarm_interval_seconds", "30") or 30))
+            refresh_before = max(30, int(get_setting(db, "deepseek_pow_refresh_before_seconds", "90") or 90))
+            if enabled:
+                credentials = db.scalars(
+                    select(Credential).where(Credential.enabled.is_(True)).order_by(Credential.id.asc())
+                ).all()
+                adapter = DeepSeekAdapter(db)
+                for credential in credentials:
+                    token = (credential.cookie or "").strip()
+                    if token:
+                        await adapter.prewarm_pow_header(
+                            token,
+                            refresh_before_seconds=refresh_before,
+                        )
+        except asyncio.CancelledError:
+            raise
+        except Exception as exc:
+            with contextlib.suppress(Exception):
+                system_log(db, "WARNING", "deepseek_pow", f"background prewarm failed: {str(exc)[:300]}")
+        finally:
+            db.close()
+        await asyncio.sleep(interval)
+
+
+def create_app() -> FastAPI:
+    settings = get_settings()
+    setup_logging()
+    init_db()
+    app = FastAPI(title=settings.app_name)
+    app.include_router(openai_router, prefix="/v1", tags=["openai"])
+    app.include_router(public_web_router, tags=["public"])
+    app.include_router(admin_router, prefix="/admin", tags=["admin"])
+    static_dir = Path(__file__).resolve().parent / "web" / "static"
+    app.mount("/static", StaticFiles(directory=static_dir), name="static")
+    app.mount("/admin/assets", StaticFiles(directory=static_dir), name="admin-assets")
+
+    @app.on_event("startup")
+    async def start_pow_prewarm() -> None:
+        app.state.deepseek_pow_prewarm_task = asyncio.create_task(_deepseek_pow_prewarm_loop())
+
+    @app.on_event("shutdown")
+    async def stop_pow_prewarm() -> None:
+        task = getattr(app.state, "deepseek_pow_prewarm_task", None)
+        if task is not None:
+            task.cancel()
+            with contextlib.suppress(asyncio.CancelledError):
+                await task
+    return app
+
+
+app = create_app()
