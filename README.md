@@ -10,6 +10,25 @@
 - PoW：原生 C 自适应多核求解，失败时回退官方 JavaScript 算法。
 - N3540 完整请求实测约 `2.1～2.5 秒`，实际速度仍受网络和模型生成影响。
 
+## Linux 一键部署（推荐）
+
+在一台全新的 Linux 服务器上直接复制下面一行。脚本会交互询问服务端口、后台管理员密码和确认密码，密码不会出现在命令行参数或 GitHub 仓库中；脚本会自动克隆/更新仓库、安装 Python 依赖、编译原生 PoW、创建 systemd 服务并等待健康检查通过：
+
+```bash
+sudo bash -c 'curl -fsSL https://raw.githubusercontent.com/qingan123/DeepSeek/main/scripts/one-click-install.sh | bash'
+```
+
+部署完成后，后台账户名为 `admin`，地址为 `http://服务器IP:你选择的端口/admin`。首次登录后请立即修改管理员密码。脚本默认部署到 `/opt/deepseek-web-proxy`，默认端口为 `60089`，服务名按端口生成，例如 `deepseek-web-proxy-60089`。
+
+查看服务状态：
+
+```bash
+sudo systemctl status deepseek-web-proxy-60089 --no-pager
+curl -fsS http://127.0.0.1:60089/v1/health
+```
+
+然后在后台“凭证池”添加 DeepSeek 网页端 `userToken` 并检测，再在“API Key”页面创建客户端调用密钥。完整步骤见 [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)。
+
 ## 五分钟部署
 
 ```bash
