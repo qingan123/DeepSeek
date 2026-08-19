@@ -1,3 +1,19 @@
+## 一键部署与更新
+
+在 Debian/Ubuntu 服务器上直接执行，脚本会自动安装 Git、Python、Node.js、GCC 等依赖，询问端口和管理员密码，创建 systemd 服务并检查健康状态：
+
+```bash
+sudo bash -c 'curl -fsSL https://raw.githubusercontent.com/qingan123/DeepSeek/main/scripts/one-click-install.sh | bash'
+```
+
+后续更新（更新前会检查未提交修改并保留 `.env`）：
+
+```bash
+sudo bash -c 'curl -fsSL https://raw.githubusercontent.com/qingan123/DeepSeek/main/scripts/update.sh | bash'
+```
+
+后台账户名为 `admin`，地址为 `http://服务器IP:你选择的端口/admin`。以下为项目原始说明。
+
 # DeepSeek Web OpenAI-Compatible Proxy (60089)
 
 把 **DeepSeek 网页端**封装成 OpenAI-compatible API，供 Hermes、Telegram Bot、OpenAI SDK 及其他客户端使用。当前生产实例监听 `127.0.0.1:60089`，上游是 `chat.deepseek.com` 网页协议，不是 DeepSeek 官方 API。
