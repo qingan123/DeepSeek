@@ -1,3 +1,9 @@
+## 项目部署
+
+```bash
+bash scripts/install.sh
+```
+
 ## 一键部署与更新
 
 在 Debian/Ubuntu 服务器上直接执行，脚本会自动安装 Git、Python、Node.js、GCC 等依赖，询问端口和管理员密码，创建 systemd 服务并检查健康状态：
