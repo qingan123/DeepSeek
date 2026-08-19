@@ -12,7 +12,7 @@
 
 ## Linux 一键部署（推荐）
 
-在一台全新的 Linux 服务器上直接复制下面一行。脚本会交互询问服务端口、后台管理员密码和确认密码，密码不会出现在命令行参数或 GitHub 仓库中；脚本会自动克隆/更新仓库、安装 Python 依赖、编译原生 PoW、创建 systemd 服务并等待健康检查通过：
+在一台全新的 Debian/Ubuntu Linux 服务器上直接复制下面一行。脚本会自动安装 Git、Python、Node.js、GCC 等依赖，然后交互询问服务端口、后台管理员密码和确认密码；密码不会出现在命令行参数或 GitHub 仓库中。脚本会自动克隆/更新仓库、安装 Python 依赖、编译原生 PoW、创建 systemd 服务并等待健康检查通过：
 
 ```bash
 sudo bash -c 'curl -fsSL https://raw.githubusercontent.com/qingan123/DeepSeek/main/scripts/one-click-install.sh | bash'

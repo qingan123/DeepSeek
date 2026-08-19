@@ -12,12 +12,33 @@ read_tty() { local prompt="$1" var; IFS= read -r -p "$prompt" var </dev/tty || f
 read_secret() { local prompt="$1" var; IFS= read -r -s -p "$prompt" var </dev/tty || fail '无法读取终端密码'; printf '\n' >/dev/tty; printf '%s' "$var"; }
 
 [[ "${EUID}" -eq 0 ]] || fail '请使用 root 或 sudo 执行此脚本。'
+install_prerequisites() {
+  if ! command -v apt-get >/dev/null 2>&1; then
+    return
+  fi
+  local packages=()
+  command -v git >/dev/null 2>&1 || packages+=(git)
+  command -v curl >/dev/null 2>&1 || packages+=(curl)
+  command -v python3 >/dev/null 2>&1 || packages+=(python3)
+  python3 -m venv --help >/dev/null 2>&1 || packages+=(python3-venv)
+  command -v node >/dev/null 2>&1 || packages+=(nodejs)
+  command -v gcc >/dev/null 2>&1 || packages+=(gcc)
+  command -v systemctl >/dev/null 2>&1 || packages+=(systemd)
+  if ((${#packages[@]})); then
+    apt-get update -qq
+    DEBIAN_FRONTEND=noninteractive apt-get install -y -qq "${packages[@]}"
+  fi
+}
+
+install_prerequisites
 need_cmd git
 need_cmd python3
 need_cmd curl
 need_cmd node
 need_cmd gcc
 need_cmd systemctl
+node_major="$(node --version | tr -d 'v' | cut -d. -f1)"
+[[ "$node_major" =~ ^[0-9]+$ && "$node_major" -ge 18 ]] || fail '需要 Node.js 18 或更高版本。'
 
 port="$(read_tty "服务端口 [${DEFAULT_PORT}]: ")"; port="${port:-$DEFAULT_PORT}"
 [[ "$port" =~ ^[0-9]+$ && "$port" -ge 1 && "$port" -le 65535 ]] || fail '端口必须是 1-65535 的数字。'
