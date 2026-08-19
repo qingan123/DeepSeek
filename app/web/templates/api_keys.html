@@ -234,13 +234,26 @@ document.querySelectorAll("[data-copy-value]").forEach((button) => {
   button.addEventListener("click", async () => {
     const value = button.dataset.copyValue || "";
     if (!value) return;
+    const original = button.textContent;
     try {
-      await navigator.clipboard.writeText(value);
-      const original = button.textContent;
+      if (navigator.clipboard && window.isSecureContext) {
+        await navigator.clipboard.writeText(value);
+      } else {
+        const area = document.createElement("textarea");
+        area.value = value;
+        area.setAttribute("readonly", "");
+        area.style.position = "fixed";
+        area.style.opacity = "0";
+        document.body.appendChild(area);
+        area.select();
+        const copied = document.execCommand("copy");
+        area.remove();
+        if (!copied) throw new Error("clipboard unavailable");
+      }
       button.textContent = "已复制";
-      setTimeout(() => button.textContent = original, 1200);
+      setTimeout(() => { button.textContent = original; }, 1200);
     } catch (error) {
-      window.prompt("复制失败，请手动复制：", value);
+      window.prompt("浏览器禁止自动复制，请长按或手动复制下面的 Key：", value);
     }
   });
 });
