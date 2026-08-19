@@ -1,4 +1,5 @@
 import secrets
+from pathlib import Path
 
 from sqlalchemy import inspect, select, text
 from sqlalchemy.orm import Session
@@ -118,8 +119,14 @@ def init_db(admin_password: str | None = None) -> str | None:
                     )
                 )
 
-        if not db.scalar(select(PromptConfig)):
-            db.add(PromptConfig(name="default", enabled=False, mode="first", content=""))
+        prompt = db.scalar(select(PromptConfig).where(PromptConfig.name == "default"))
+        if not prompt:
+            prompt = PromptConfig(name="default", enabled=True, mode="first")
+            db.add(prompt)
+        if not (prompt.content or "").strip():
+            prompt.enabled = True
+            prompt.mode = "first"
+            prompt.content = (Path(__file__).with_name("default_prompt.txt")).read_text(encoding="utf-8")
 
         if not db.scalar(select(ApiKey)):
             raw_key = "sk-baidu-" + secrets.token_urlsafe(32)
