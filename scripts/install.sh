@@ -65,6 +65,10 @@ if ! [[ "$PORT" =~ ^[0-9]+$ ]] || [[ "$PORT" -lt 1 || "$PORT" -gt 65535 ]]; then
   echo "ERROR: --port must be an integer between 1 and 65535"
   exit 1
 fi
+if command -v ss >/dev/null 2>&1 && ss -ltn "sport = :$PORT" | grep -q LISTEN; then
+  echo "ERROR: port $PORT is already in use" >&2
+  exit 1
+fi
 
 if [[ -z "$SERVICE_NAME" ]]; then
   SERVICE_NAME="deepseek-web-proxy-${PORT}"
@@ -171,6 +175,14 @@ EOF
     systemctl daemon-reload
     systemctl enable "$SERVICE_NAME"
     systemctl restart "$SERVICE_NAME"
+    for _ in {1..30}; do
+      curl -fsS --max-time 2 "http://127.0.0.1:${PORT}/v1/health" >/dev/null && break
+      sleep 1
+    done
+    curl -fsS --max-time 2 "http://127.0.0.1:${PORT}/v1/health" >/dev/null || {
+      systemctl status "$SERVICE_NAME" --no-pager -l || true
+      exit 1
+    }
     systemctl status "$SERVICE_NAME" --no-pager || true
   fi
 else
@@ -180,4 +192,7 @@ fi
 echo "Deployment completed."
 echo "App directory: ${APP_DIR}"
 echo "Service name: ${SERVICE_NAME}"
-echo "Admin: http://SERVER_IP:${PORT}/admin"
+public_ip="${PUBLIC_HOST:-}"
+if [[ -z "$public_ip" ]]; then public_ip="$(curl -4fsS --max-time 5 https://api.ipify.org || true)"; fi
+if [[ -n "$public_ip" ]]; then public_url="http://${public_ip}:${PORT}/admin"; else public_url='公网IP探测失败，请检查安全组/UFW'; fi
+printf '部署完成。\n公网后台: %s\n本机后台: http://127.0.0.1:%s/admin\n端口: %s（绑定 0.0.0.0）\n' "$public_url" "$PORT" "$PORT"

@@ -47,8 +47,11 @@ password="$(read_secret '后台管理员密码（至少 8 位）: ')"
 confirm="$(read_secret '确认管理员密码: ')"
 [[ "$password" == "$confirm" ]] || fail '两次密码不一致。'
 unset confirm
+if command -v ss >/dev/null 2>&1 && ss -ltn "sport = :$port" | grep -q LISTEN; then fail "端口 $port 已被占用。"; fi
 service_name="${SERVICE_PREFIX}-${port}"
-
+public_ip="${PUBLIC_HOST:-}"
+if [[ -z "$public_ip" ]]; then public_ip="$(curl -4fsS --max-time 5 https://api.ipify.org || true)"; fi
+if [[ -n "$public_ip" ]]; then public_url="http://${public_ip}:${port}/admin"; else public_url="公网IP探测失败，请检查安全组/UFW"; fi
 if [[ -e "$APP_DIR/.git" ]]; then
   git -C "$APP_DIR" fetch --depth 1 origin main
   git -C "$APP_DIR" reset --hard origin/main
@@ -71,7 +74,7 @@ from pathlib import Path
 path = Path(sys.argv[1])
 lines = path.read_text(encoding='utf-8').splitlines()
 values = {line.split('=', 1)[0]: line.split('=', 1)[1] for line in lines if '=' in line and not line.lstrip().startswith('#')}
-values['APP_HOST'] = '127.0.0.1'
+values['APP_HOST'] = '0.0.0.0'
 values['APP_PORT'] = os.environ['INSTALL_PORT']
 values['ADMIN_PASSWORD'] = os.environ['INSTALL_ADMIN_PASSWORD']
 if not values.get('APP_SECRET') or values['APP_SECRET'] == 'change-me':
@@ -99,7 +102,7 @@ Type=simple
 WorkingDirectory=${APP_DIR}
 EnvironmentFile=${APP_DIR}/.env
 Environment="PATH=${APP_DIR}/.venv/bin:/usr/local/bin:/usr/bin:/bin"
-ExecStart=${APP_DIR}/.venv/bin/uvicorn app.main:app --host 127.0.0.1 --port ${port}
+ExecStart=${APP_DIR}/.venv/bin/uvicorn app.main:app --host 0.0.0.0 --port ${port}
 Restart=always
 RestartSec=3
 TimeoutStopSec=30
@@ -117,4 +120,11 @@ for _ in $(seq 1 30); do
 done
 [[ "$healthy" == true ]] || { systemctl status "$service_name" --no-pager -l || true; fail "服务未通过健康检查，请运行: journalctl -u $service_name -n 100 --no-pager"; }
 
-printf '\n部署完成。\n后台账户: admin\n后台地址: http://服务器IP:%s/admin\n项目目录: %s\n服务名: %s\n' "$port" "$APP_DIR" "$service_name"
+public_ip="${PUBLIC_HOST:-}"
+if [[ -z "$public_ip" ]]; then public_ip="$(curl -4fsS --max-time 5 https://api.ipify.org || true)"; fi
+if [[ -n "$public_ip" ]]; then
+  public_url="http://${public_ip}:${port}/admin"
+else
+  public_url="公网IP探测失败，请检查安全组/UFW"
+fi
+printf '\n部署完成。\n后台账户: admin\n后台地址: %s\n本机地址: http://127.0.0.1:%s/admin\n端口: %s（绑定 0.0.0.0）\n项目目录: %s\n服务名: %s\n' "$public_url" "$port" "$port" "$APP_DIR" "$service_name"
